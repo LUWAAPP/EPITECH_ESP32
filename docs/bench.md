@@ -104,6 +104,19 @@ are the ones a team must run with the board in hand.
       status with an incremented `boot_count`.
 - [ ] Subscribe with QoS 1: kill and restart the broker, commands still arrive.
 
+## v0.13-reliability
+
+- [ ] `t` is real epoch seconds and matches the wall clock within a second or
+      two; before NTP answers it is 0, never uptime.
+- [ ] Pull power for 60 s: `sta/<id>` (retained) changes to `"online":false`.
+- [ ] Power back: `"online":true` and `boot_count` increments.
+- [ ] Hold the loop in a long blocking call: watchdog resets the board after
+      30 s instead of hanging silently.
+- [ ] Leave a sensor unplugged: after three identical frames the payload carries
+      `"stale":true`.
+- [ ] `hum`/`temp` carry one decimal, not integers.
+
+
 
 
 

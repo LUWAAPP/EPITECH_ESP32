@@ -11,7 +11,9 @@ jobs:
         with:
           fetch-depth: 0
       - id: list
-        run: echo "tags=$(git tag --sort=creatordate | jq -R -s -c 'split(\"\n\")[:-1]')" >> "$GITHUB_OUTPUT"
+        run: |
+          TAGS=$(git tag --sort=creatordate | jq -R . | jq -s -c .)
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
   build:
     needs: tags

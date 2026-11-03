@@ -227,6 +227,27 @@ Acceptance:
 - `cmd/config` parameters persist;
 - `cmd/restart` replies before rebooting and increments `boot_count`.
 
+## Stage 13 — `v0.13-reliability`
+
+Four production gaps closed, the ones the syllabus makes mandatory:
+
+- **NTP:** `configTime()` runs after association; every telemetry frame carries
+  `t` (epoch seconds, 0 until synced). Status timestamps are never uptime.
+- **LWT:** a retained `"online":false` will on `sta/{id}`, so a power cut leaves
+  a visible offline marker at the broker.
+- **Watchdog:** 30 s hardware watchdog; a hung loop reboots instead of freezing.
+- **Frozen values:** three identical frames in a row add `"stale":true`.
+
+Also fixed here: temperature and humidity keep one decimal instead of being
+truncated to integers.
+
+Acceptance:
+
+- `t` is wall-clock epoch; LWT flips to offline within the keep-alive window;
+- watchdog resets a deliberately hung board;
+- stale flag appears for a frozen sensor; decimals survive.
+
+
 
 
 

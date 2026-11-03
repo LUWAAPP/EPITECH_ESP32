@@ -20,7 +20,7 @@ public:
     // Broker connection; retried by loop() with backoff.
     bool initMQTT(const char* broker, int port, const char* username, const char* password);
 
-    bool publishMessage(const char* topic, const char* payload);
+    bool publishMessage(const char* topic, const char* payload, bool retained = false);
     bool subscribe(const char* topic, uint8_t qos = 1);
     void setCallback(void (*callback)(char*, byte*, unsigned int));
 

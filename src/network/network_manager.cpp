@@ -46,6 +46,7 @@ bool NetworkManager::initWiFi(int portalTimeoutSeconds) {
     if (connectWithSecrets(15000)) {
         LOG_I("WiFi connected ip=%s rssi=%d dBm", ip().c_str(), (int)rssi());
         wifiReconnectCount = 0;
+        configTime(0, 0, "pool.ntp.org", "time.nist.gov");
         return true;
     }
 
@@ -53,6 +54,7 @@ bool NetworkManager::initWiFi(int portalTimeoutSeconds) {
         LOG_I("WiFi connected via portal ip=%s rssi=%d dBm",
               ip().c_str(), (int)rssi());
         wifiReconnectCount = 0;
+        configTime(0, 0, "pool.ntp.org", "time.nist.gov");
         return true;
     }
 
@@ -68,6 +70,11 @@ bool NetworkManager::initMQTT(const char* broker, int port,
     mqttPassword = password;
 
     mqttClient.setServer(broker, port);
+
+    // Status payloads carry parameters and command state and can exceed the
+    // 256-byte PubSubClient default, in which case publish() fails silently.
+    mqttClient.setBufferSize(1024);
+
     return reconnectMQTT();
 }
 
@@ -77,13 +84,22 @@ bool NetworkManager::reconnectMQTT() {
     }
 
     String clientId = Config().getSensorId();
+    String statusTopic = Config().getStaTopic();
+    String willPayload = String("{\"sensor_id\":\"") + Config().getSensorId() +
+                         "\",\"online\":false}";
+
     LOG_I("MQTT connect %s:%d as %s", mqttBroker, mqttPort, clientId.c_str());
 
+    // Last Will: retained so a dead node leaves an offline marker behind.
+    // The broker publishes it when the keep-alive window expires — no clean
+    // disconnect required, which is exactly the failure mode of a power cut.
     bool connected;
     if (mqttUsername != nullptr && mqttPassword != nullptr) {
-        connected = mqttClient.connect(clientId.c_str(), mqttUsername, mqttPassword);
+        connected = mqttClient.connect(clientId.c_str(), mqttUsername, mqttPassword,
+                                       statusTopic.c_str(), 1, true, willPayload.c_str());
     } else {
-        connected = mqttClient.connect(clientId.c_str());
+        connected = mqttClient.connect(clientId.c_str(), nullptr, nullptr,
+                                       statusTopic.c_str(), 1, true, willPayload.c_str());
     }
 
     if (connected) {
@@ -116,12 +132,12 @@ bool NetworkManager::subscribe(const char* topic, uint8_t qos) {
     return ok;
 }
 
-bool NetworkManager::publishMessage(const char* topic, const char* payload) {
+bool NetworkManager::publishMessage(const char* topic, const char* payload, bool retained) {
     if (!mqttClient.connected()) {
         LOG_W("cannot publish to %s: MQTT disconnected", topic);
         return false;
     }
-    bool ok = mqttClient.publish(topic, payload);
+    bool ok = mqttClient.publish(topic, payload, retained);
     if (ok) {
         LOG_D("published %s: %s", topic, payload);
     } else {

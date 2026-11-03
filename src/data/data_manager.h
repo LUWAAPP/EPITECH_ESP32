@@ -46,8 +46,17 @@ private:
     std::vector<unsigned int> soundSamples;
     std::vector<unsigned int> pm25Samples;
     std::vector<unsigned int> co2Samples;
-    unsigned short int humidity;
-    unsigned short int temperature;
+    float humidity;
+    float temperature;
+
+    // Frozen-value detection (S12 reliability baseline).
+    unsigned short lastSound = 0;
+    unsigned short lastCo2 = 0;
+    unsigned short lastPm25 = 0;
+    unsigned short lastHum10 = 0;
+    unsigned short lastTemp10 = 0;
+    bool haveLastFrame = false;
+    unsigned int frozenFrames = 0;
     
     // JSON document for MQTT
     DynamicJsonDocument dataDoc;

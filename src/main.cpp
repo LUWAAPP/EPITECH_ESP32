@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 
 #include "data/data_manager.h"
 #include "hal/hal.h"
@@ -8,17 +9,17 @@
 #include "utils/logger.h"
 #include "utils/task_manager.h"
 
-// Stage v0.12-commands
+// Stage v0.13-reliability
 //
-// Goal: stop being a one-way device. The node answers a status request, moves
-// its geohash, accepts runtime parameters and reboots on command.
+// Goal: close the four gaps that make a node silently wrong — unsynchronised
+// time, invisible node death, hung loops and frozen readings.
 //
-// Lesson: a command channel needs subscriptions, a dispatcher and a reply. Each
-// cmd/* topic is a contract: payload schema in, status reply out. QoS 1 on
-// subscriptions means the broker retries delivery until the client acknowledges.
+// Lesson: reliability is observable. `t` separates measurement time from
+// delivery time; a retained Last Will leaves an offline marker when power dies;
+// the watchdog reboots a hung loop instead of letting it pretend; three
+// identical frames are flagged stale instead of republished as fresh.
 //
-// NVS is the other half: geohash and runtime parameters survive reboots, so a
-// command changes behaviour without reflashing.
+// The command channel from v0.12 remains: status, config, geohash, restart.
 
 static const int HEARTBEAT_LED = LED_BUILTIN;
 static const unsigned long STATUS_INTERVAL_MS = 10000;
@@ -70,6 +71,12 @@ void setup() {
 
     TaskManager::getInstance().init();
     DataManager::getInstance().init(hal, TaskManager::getInstance().getScheduler());
+
+    // Watchdog: if the loop stops feeding it for 30 s, the board reboots. The
+    // failure mode this catches is a hung driver or a blocked loop, not a
+    // long-running task — those must yield.
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 }
 
 void loop() {
@@ -115,4 +122,5 @@ void loop() {
 
     TaskManager::getInstance().execute();
     hal.update();
+    esp_task_wdt_reset();
 }

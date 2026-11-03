@@ -19,10 +19,15 @@ String MqttProtocol::buildStatusPayload(
     DynamicJsonDocument doc(1024);
     doc["sensor_id"] = Config().getSensorId();
     doc["firmware_version"] = Config().getFirmwareVersion();
+    doc["online"] = true;
     doc["uptime"] = (int)(millis() / 1000);
     doc["ip"] = WiFi.localIP().toString();
     doc["boot_count"] = RuntimeConfig::getInstance().getBootCount();
-    doc["timestamp"] = (int)(time(nullptr) > 0 ? time(nullptr) : (millis() / 1000));
+
+    // Real epoch seconds, or 0 when NTP has not answered yet. Never substitute
+    // uptime here: it is not a timestamp and it silently corrupts the log.
+    long epoch = (long)time(nullptr);
+    doc["timestamp"] = epoch > 1600000000L ? epoch : 0;
 
     JsonObject params = doc.createNestedObject("parameters");
     RuntimeConfig::getInstance().getParametersJson(params);
@@ -46,7 +51,8 @@ void MqttProtocol::publishStatus(
     String payload = buildStatusPayload(lastCommand, commandStatus, commandProgress);
     NetworkManager::getInstance().publishMessage(
         Config().getStaTopic(),
-        payload.c_str()
+        payload.c_str(),
+        true  // retained: last-seen survives subscriber restarts
     );
 }
 
