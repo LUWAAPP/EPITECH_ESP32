@@ -76,6 +76,16 @@ are the ones a team must run with the board in hand.
 - [ ] Changing one `*_SAMPLE_TIME` constant changes only that sensor's cadence.
 - [ ] With a sensor absent, its averaged field stays 0 and the frame still ships.
 
+## v0.10-wifi
+
+- [ ] First boot with `CHANGE_ME` opens `SenPork-setup`; join it, enter lab
+      credentials, board connects and stores them in NVS.
+- [ ] Second boot joins directly, no portal.
+- [ ] Status line every 10 s shows IP and RSSI; moving away lowers RSSI.
+- [ ] Power off the AP: node logs reconnect attempts and keeps sampling frames.
+- [ ] Power the AP back: node reconnects without a manual reset.
+
+
 
 
 

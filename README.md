@@ -166,6 +166,23 @@ Acceptance:
 - changing one interval constant changes only that sensor;
 - an absent sensor yields 0 in its field, never a stalled frame.
 
+## Stage 10 — `v0.10-wifi`
+
+Association as a state machine. Credentials come from `secrets.local.h` when
+present, otherwise a captive portal persisted in NVS. The device ID is the Wi-Fi
+MAC with the `aqa-` prefix, so it survives reflashing. RSSI is logged because
+"connected" is not "usable".
+
+Production reboots after three failed reconnects; this stage keeps sampling
+offline and retries forever. The reboot policy is defended with soak data at S12.
+
+Acceptance:
+
+- portal on first boot, direct join afterwards;
+- IP and RSSI every 10 s;
+- AP down/up: reconnect without a manual reset and without losing samples.
+
+
 
 
 
