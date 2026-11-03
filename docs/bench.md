@@ -94,6 +94,17 @@ are the ones a team must run with the board in hand.
 - [ ] Restart the broker: publishing resumes within one reconnect interval.
 - [ ] Frames from two boards never share a topic.
 
+## v0.12-commands
+
+- [ ] `mosquitto_pub -t cmd/status/<id> -m ''` → status JSON on `sta/<id>`.
+- [ ] `mosquitto_pub -t cmd/geohash/<id> -m '{"geohash":"d348"}'` → next frames
+      arrive on `tele/d348/<id>` and the change survives a reboot.
+- [ ] `cmd/config` with `{"interval":30}` survives a reboot in `parameters`.
+- [ ] `cmd/restart` replies `in_progress`, then the board reboots and republishes
+      status with an incremented `boot_count`.
+- [ ] Subscribe with QoS 1: kill and restart the broker, commands still arrive.
+
+
 
 
 

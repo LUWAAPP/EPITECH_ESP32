@@ -1,6 +1,6 @@
 #include "data_manager.h"
 #include "network/network_manager.h"
-#include "utils/config_manager.h"
+#include "utils/runtime_config.h"
 #include "utils/task_manager.h"
 
 // Initialize static member
@@ -155,10 +155,11 @@ void DataManager::createDataFrame() {
     String dataString;
     serializeJson(dataDoc, dataString);
 
-    // v0.12 replaces Config().getDataTopic() with the NVS-backed geohash topic.
-    const char* topic = Config().getDataTopic();
-    if (NetworkManager::getInstance().publishMessage(topic, dataString.c_str())) {
-        LOG_I("frame sent to %s: %s", topic, dataString.c_str());
+    // RuntimeConfig reads the geohash from NVS, so cmd/geohash can move the node
+    // without reflashing; the default comes from secrets.h.
+    String teleTopic = RuntimeConfig::getInstance().getTeleTopic();
+    if (NetworkManager::getInstance().publishMessage(teleTopic.c_str(), dataString.c_str())) {
+        LOG_I("frame sent to %s: %s", teleTopic.c_str(), dataString.c_str());
     } else {
         LOG_E("frame dropped (no broker) %s", dataString.c_str());
     }

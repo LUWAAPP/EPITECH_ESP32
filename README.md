@@ -203,6 +203,31 @@ Acceptance:
 - restarting the broker resumes publishing automatically;
 - two boards never collide on a topic.
 
+## Stage 12 — `v0.12-commands`
+
+Bi-directional MQTT. Four command topics now (six after the OTA stage), a
+dispatcher, status replies, and NVS for things that must survive a reboot
+(geohash, parameters, boot count).
+
+```
+cmd/status/{id}    -> status snapshot
+cmd/config/{id}    -> runtime parameters as JSON
+cmd/geohash/{id}   -> move the node's tele topic
+cmd/restart/{id}   -> reboot
+sta/{id}           -> status replies + 60 s heartbeat
+```
+
+Subscriptions use QoS 1. They are re-issued on every reconnect because they do
+not survive a session.
+
+Acceptance:
+
+- a status request produces a status payload on `sta/{id}`;
+- changing geohash retargets frames and survives a reboot;
+- `cmd/config` parameters persist;
+- `cmd/restart` replies before rebooting and increments `boot_count`.
+
+
 
 
 
