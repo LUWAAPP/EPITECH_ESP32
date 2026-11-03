@@ -3,19 +3,21 @@
 
 #include "hal/board/ttgo_t7_v14.h"
 #include "hal/sensors/co2_sensor.h"
+#include "hal/sensors/pm_sensor.h"
 #include "hal/sensors/temperature_sensor.h"
 #include "utils/logger.h"
 
-// Stage v0.5-co2-uart
+// Stage v0.6-pm-uart
 //
-// Goal: read a sensor that speaks UART, and survive it not answering.
+// Goal: read a second UART device — this one behind SoftwareSerial — and fail
+// within a bounded time when it stops sending.
 //
-// Lesson: UART is a byte stream with no framing of its own — the sensor's
-// datasheet defines packets (start byte, length, payload, checksum) and a baud
-// rate. The MH-Z19 and the SenseAir S8 use the same physical bus at 9600 8N1 but
-// different protocols, so detection is by asking, not by assuming.
+// Lesson: SoftwareSerial bit-bangs the waveform on any GPIO, which costs CPU and
+// is limited to modest baud rates; it is the only option when the two hardware
+// UARTs are taken. The PMS7003 emits 32-byte frames continuously; the library
+// parses them, and a timeout is a first-class result, not an exception.
 //
-// CO2 sensors also need warm-up. The production firmware verifies a non-zero
+// UART sensors also need warm-up. The production firmware verifies a non-zero
 // reading 30 s after init and reboots if the sensor is still silent; here the
 // verification is visible in the log instead of a reboot.
 
@@ -23,10 +25,12 @@ static const unsigned long SAMPLE_WINDOW_MS = 50;
 static const unsigned long REPORT_INTERVAL_MS = 500;
 static const unsigned long HT_INTERVAL_MS = 2000;
 static const unsigned long CO2_INTERVAL_MS = 2000;
+static const unsigned long PM_INTERVAL_MS = 2000;
 static const int HEARTBEAT_LED = LED_BUILTIN;
 
 static TemperatureSensor tempSensor;
 static CO2Sensor co2Sensor;
+static PMSensor pmSensor;
 
 struct SoundWindow {
     uint16_t min;
@@ -90,6 +94,15 @@ void setup() {
     } else {
         LOG_E("no CO2 sensor answered; UART RX/TX may be swapped");
     }
+
+    // SoftwareSerial: RX 34 is input-only on the ESP32, which suits a receive-only
+    // PMS7003 connection; TX 14 is unused by the sensor but required by the API.
+    if (pmSensor.init(BoardPins::PM_RX, BoardPins::PM_TX)) {
+        LOG_I("PM sensor on SoftwareSerial RX=%d TX=%d (9600 8N1)",
+              BoardPins::PM_RX, BoardPins::PM_TX);
+    } else {
+        LOG_E("PM sensor initialization failed");
+    }
 }
 
 void loop() {
@@ -97,6 +110,7 @@ void loop() {
     static unsigned long lastSound = 0;
     static unsigned long lastHt = 0;
     static unsigned long lastCo2 = 0;
+    static unsigned long lastPm = 0;
     static bool ledOn = false;
 
     unsigned long now = millis();
@@ -138,6 +152,16 @@ void loop() {
             } else {
                 LOG_W("CO2 read failed after retries (warm-up can take minutes)");
             }
+        }
+    }
+
+    if (now - lastPm >= PM_INTERVAL_MS) {
+        lastPm = now;
+        uint16_t pm25 = 0;
+        if (pmSensor.readWithRetry(pm25, 3, 100)) {
+            LOG_I("PM2.5 = %u ug/m3", pm25);
+        } else {
+            LOG_W("PM read timed out; check the fan and the RX line");
         }
     }
 }

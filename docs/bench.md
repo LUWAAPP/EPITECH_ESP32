@@ -47,6 +47,14 @@ are the ones a team must run with the board in hand.
 - [ ] Swap RX/TX: detection fails with an explicit message, no hang.
 - [ ] Power-cycle and observe the warm-up behaviour — first readings may be 0.
 
+## v0.6-pm-uart
+
+- [ ] `PM2.5` prints every 2 s and rises when you disturb dust near the inlet.
+- [ ] Disconnect the PMS TX line: reads time out with a warning, the other
+      sensors keep reporting.
+- [ ] Fan audibly spins; if not, check the PMS power path before the code.
+
+
 
 
 

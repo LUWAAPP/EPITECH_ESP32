@@ -105,6 +105,20 @@ Acceptance:
 - ppm is plausible and reacts to exhaled air;
 - swapped RX/TX yields an explicit failure message, no hang.
 
+## Stage 06 — `v0.6-pm-uart`
+
+A second UART device, on SoftwareSerial. GPIO 34 is input-only, which is fine for
+a receive-only PMS7003. Reads are bounded by a one-second timeout so a missing
+sensor cannot freeze the loop.
+
+Acceptance:
+
+- PM2.5 prints every 2 s;
+- disturbing dust near the inlet moves the value;
+- unplugging the PMS data line produces a timeout warning while the other sensors
+  keep reporting.
+
+
 
 
 
