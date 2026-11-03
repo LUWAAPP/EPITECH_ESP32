@@ -16,3 +16,11 @@ are the ones a team must run with the board in hand.
 - [ ] Log line appears every 1 s regardless of LED phase — the loop is not
       blocked.
 - [ ] Uptime increases monotonically; reset restarts it at 0.
+
+## v0.2-adc
+
+- [ ] Silence: `p2p` near 0, `mean` stable around the DC bias.
+- [ ] Clap or speak: `p2p` spikes, then decays — the window catches transients.
+- [ ] Cover the microphone: `p2p` collapses.
+- [ ] `samples` per window is roughly 5000-15000 (ADC rate, not a fixed count).
+

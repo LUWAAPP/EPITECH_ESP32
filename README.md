@@ -57,3 +57,16 @@ Acceptance:
 - `uptime` and `reports` still advance while the LED blinks;
 - log lines are prefixed with `[seconds.milliseconds]` and a level.
 
+## Stage 02 — `v0.2-adc`
+
+Analog input done honestly: 12-bit resolution, 11 dB attenuation, and a 50 ms
+peak-to-peak window instead of a single `analogRead()`. GPIO 35 is input-only on
+the ESP32.
+
+Acceptance:
+
+- silence gives `p2p` near 0; a clap spikes it;
+- `mean` stays near the microphone's DC bias regardless of loudness;
+- the LED keeps blinking — the 50 ms window is the only blocking section.
+
+
