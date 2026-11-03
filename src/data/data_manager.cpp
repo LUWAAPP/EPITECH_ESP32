@@ -1,4 +1,6 @@
 #include "data_manager.h"
+#include "network/network_manager.h"
+#include "utils/config_manager.h"
 #include "utils/task_manager.h"
 
 // Initialize static member
@@ -153,9 +155,13 @@ void DataManager::createDataFrame() {
     String dataString;
     serializeJson(dataDoc, dataString);
 
-    // No network yet: the frame goes to the serial console. v0.11 replaces this
-    // line with a publish to tele/{geohash}/{sensor_id}.
-    LOG_I("frame %s", dataString.c_str());
+    // v0.12 replaces Config().getDataTopic() with the NVS-backed geohash topic.
+    const char* topic = Config().getDataTopic();
+    if (NetworkManager::getInstance().publishMessage(topic, dataString.c_str())) {
+        LOG_I("frame sent to %s: %s", topic, dataString.c_str());
+    } else {
+        LOG_E("frame dropped (no broker) %s", dataString.c_str());
+    }
 
     if (soundSamples.empty() && pm25Samples.empty() && co2Samples.empty()) {
         LOG_W("frame built with no samples in any window");

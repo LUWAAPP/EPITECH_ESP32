@@ -1,5 +1,6 @@
 #include "network_manager.h"
 
+#include "utils/config_manager.h"
 #include "utils/secrets.h"
 
 String NetworkManager::generateDeviceID() {
@@ -43,8 +44,7 @@ bool NetworkManager::connectWithPortal(int timeoutSeconds) {
 
 bool NetworkManager::initWiFi(int portalTimeoutSeconds) {
     if (connectWithSecrets(15000)) {
-        LOG_I("WiFi connected ip=%s rssi=%d dBm",
-              ip().c_str(), (int)rssi());
+        LOG_I("WiFi connected ip=%s rssi=%d dBm", ip().c_str(), (int)rssi());
         wifiReconnectCount = 0;
         return true;
     }
@@ -60,41 +60,115 @@ bool NetworkManager::initWiFi(int portalTimeoutSeconds) {
     return false;
 }
 
+bool NetworkManager::initMQTT(const char* broker, int port,
+                              const char* username, const char* password) {
+    mqttBroker = broker;
+    mqttPort = port;
+    mqttUsername = username;
+    mqttPassword = password;
+
+    mqttClient.setServer(broker, port);
+    return reconnectMQTT();
+}
+
+bool NetworkManager::reconnectMQTT() {
+    if (mqttClient.connected() || mqttBroker == nullptr) {
+        return mqttClient.connected();
+    }
+
+    String clientId = Config().getSensorId();
+    LOG_I("MQTT connect %s:%d as %s", mqttBroker, mqttPort, clientId.c_str());
+
+    bool connected;
+    if (mqttUsername != nullptr && mqttPassword != nullptr) {
+        connected = mqttClient.connect(clientId.c_str(), mqttUsername, mqttPassword);
+    } else {
+        connected = mqttClient.connect(clientId.c_str());
+    }
+
+    if (connected) {
+        LOG_I("MQTT connected");
+        mqttReconnectCount = 0;
+        return true;
+    }
+
+    mqttReconnectCount++;
+    LOG_W("MQTT connect failed rc=%d (attempt %d)",
+          mqttClient.state(), mqttReconnectCount);
+    return false;
+}
+
+void NetworkManager::setCallback(void (*callback)(char*, byte*, unsigned int)) {
+    mqttClient.setCallback(callback);
+}
+
+bool NetworkManager::subscribe(const char* topic, uint8_t qos) {
+    if (!mqttClient.connected()) {
+        LOG_W("cannot subscribe to %s: MQTT disconnected", topic);
+        return false;
+    }
+    bool ok = mqttClient.subscribe(topic, qos);
+    if (ok) {
+        LOG_I("subscribed %s (QoS %d)", topic, qos);
+    } else {
+        LOG_E("subscribe failed: %s", topic);
+    }
+    return ok;
+}
+
+bool NetworkManager::publishMessage(const char* topic, const char* payload) {
+    if (!mqttClient.connected()) {
+        LOG_W("cannot publish to %s: MQTT disconnected", topic);
+        return false;
+    }
+    bool ok = mqttClient.publish(topic, payload);
+    if (ok) {
+        LOG_D("published %s: %s", topic, payload);
+    } else {
+        LOG_E("publish failed: %s", topic);
+    }
+    return ok;
+}
+
 void NetworkManager::loop() {
-    if (WiFi.status() == WL_CONNECTED) {
-        wifiReconnectCount = 0;
+    if (WiFi.status() != WL_CONNECTED) {
+        unsigned long now = millis();
+        if (now - lastWiFiReconnectAttempt >= WIFI_RECONNECT_INTERVAL) {
+            lastWiFiReconnectAttempt = now;
+            LOG_W("WiFi lost; reconnect attempt %d of %d",
+                  wifiReconnectCount + 1, MAX_WIFI_RETRIES);
+            WiFi.reconnect();
+
+            unsigned long start = millis();
+            while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+                delay(250);
+            }
+
+            if (WiFi.status() == WL_CONNECTED) {
+                LOG_I("WiFi reconnected ip=%s rssi=%d dBm",
+                      ip().c_str(), (int)rssi());
+                wifiReconnectCount = 0;
+            } else {
+                wifiReconnectCount++;
+                if (wifiReconnectCount >= MAX_WIFI_RETRIES) {
+                    LOG_E("%d failed reconnects; keeping the node alive", wifiReconnectCount);
+                    wifiReconnectCount = 0;
+                }
+            }
+        }
         return;
     }
 
-    unsigned long now = millis();
-    if (now - lastReconnectAttempt < WIFI_RECONNECT_INTERVAL) {
-        return;
-    }
-    lastReconnectAttempt = now;
-
-    LOG_W("WiFi lost; reconnect attempt %d of %d",
-          wifiReconnectCount + 1, MAX_WIFI_RETRIES);
-    WiFi.reconnect();
-
-    // Give the association a bounded window before the next attempt.
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
-        delay(250);
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        LOG_I("WiFi reconnected ip=%s rssi=%d dBm", ip().c_str(), (int)rssi());
-        wifiReconnectCount = 0;
+    if (!mqttClient.connected()) {
+        unsigned long now = millis();
+        if (now - lastReconnectAttempt >= MQTT_RECONNECT_INTERVAL) {
+            lastReconnectAttempt = now;
+            if (reconnectMQTT()) {
+                lastReconnectAttempt = 0;
+            }
+        }
         return;
     }
 
-    wifiReconnectCount++;
-    if (wifiReconnectCount >= MAX_WIFI_RETRIES) {
-        // Production reboots here. The reboot policy is defended (or condemned)
-        // with soak data at S12; the ladder keeps retrying and stays online for
-        // local sampling.
-        LOG_E("%d failed reconnects; keeping the node alive and retrying",
-              wifiReconnectCount);
-        wifiReconnectCount = 0;
-    }
+    mqttClient.loop();
 }

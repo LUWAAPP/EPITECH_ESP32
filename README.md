@@ -182,6 +182,28 @@ Acceptance:
 - IP and RSSI every 10 s;
 - AP down/up: reconnect without a manual reset and without losing samples.
 
+## Stage 11 — `v0.11-mqtt`
+
+Publish/subscribe with the AQA topic tree. Identity is the MAC-derived sensor id;
+location is the geohash in the topic; payload is the JSON frame. A broker outage
+drops frames but never stops the sampler.
+
+Topics:
+
+```
+tele/{geohash}/{sensor_id}   measurements, every 15 s
+sta/{sensor_id}              status (added at v0.12)
+cmd/{command}/{sensor_id}    commands (added at v0.12)
+```
+
+Acceptance:
+
+- `mosquitto_sub -v -t 'tele/#'` prints frames with the expected topic;
+- stopping the broker logs drops without stalling sampling;
+- restarting the broker resumes publishing automatically;
+- two boards never collide on a topic.
+
+
 
 
 

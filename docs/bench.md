@@ -85,6 +85,16 @@ are the ones a team must run with the board in hand.
 - [ ] Power off the AP: node logs reconnect attempts and keeps sampling frames.
 - [ ] Power the AP back: node reconnects without a manual reset.
 
+## v0.11-mqtt
+
+- [ ] `mosquitto_sub -v -t 'tele/#'` shows a frame every 15 s with the full topic
+      `tele/d347/aqa-<MAC>`.
+- [ ] `mosquitto_sub -t 'sta/#'` is silent at this stage — status is v0.12.
+- [ ] Stop the broker: log says frame dropped; sampling continues.
+- [ ] Restart the broker: publishing resumes within one reconnect interval.
+- [ ] Frames from two boards never share a topic.
+
+
 
 
 
