@@ -118,6 +118,24 @@ Acceptance:
 - unplugging the PMS data line produces a timeout warning while the other sensors
   keep reporting.
 
+## Stage 07 — `v0.7-hal`
+
+`main.cpp` stops accumulating drivers. The HAL owns the four sensors, their
+retries and a status bitmap; the application reads through `HAL` and gets an
+explicit PASS/FAIL self-test. This is the S5 firmware v0.1 contract: ≥2 drivers,
+timestamped output, self-test, explicit error states.
+
+One deliberate change from production: a CO2 sensor stuck at 0 ppm after warm-up
+logs an error instead of rebooting, so a bench without that sensor cannot
+boot-loop.
+
+Acceptance:
+
+- self-test line matches the populated sensors;
+- one missing sensor does not stop the others;
+- no pin numbers remain in `main.cpp`.
+
+
 
 
 

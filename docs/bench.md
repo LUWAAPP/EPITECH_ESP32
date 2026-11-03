@@ -54,6 +54,14 @@ are the ones a team must run with the board in hand.
       sensors keep reporting.
 - [ ] Fan audibly spins; if not, check the PMS power path before the code.
 
+## v0.7-hal
+
+- [ ] Self-test line reports PASS/FAIL per sensor, matching what is populated.
+- [ ] Remove one sensor: only its slot is FAIL, the other three keep sampling.
+- [ ] Boot completes without a reset loop even with the CO2 sensor absent.
+- [ ] `main.cpp` contains no pin numbers — they live in `BoardPins`.
+
+
 
 
 
