@@ -135,6 +135,21 @@ Acceptance:
 - one missing sensor does not stop the others;
 - no pin numbers remain in `main.cpp`.
 
+## Stage 08 — `v0.8-arduinojson`
+
+The AQA payload shape and its memory budget. A `DynamicJsonDocument` has a fixed
+capacity; overflow is silent, so the stage prints a deliberately undersized
+document next to a correct frame, then verifies every frame by round-trip.
+
+Frame shape: `{"fields":[{"snd":..},{"co2":..},{"pm25":..},{"hum":..},{"temp":..}]}`.
+
+Acceptance:
+
+- truncation demo shows `overflowed=1` and a shortened payload;
+- the real frame parses with `jq`;
+- `frame round-trip OK` on every frame.
+
+
 
 
 

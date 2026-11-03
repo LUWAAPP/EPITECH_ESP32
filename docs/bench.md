@@ -61,6 +61,14 @@ are the ones a team must run with the board in hand.
 - [ ] Boot completes without a reset loop even with the CO2 sensor absent.
 - [ ] `main.cpp` contains no pin numbers — they live in `BoardPins`.
 
+## v0.8-arduinojson
+
+- [ ] Boot prints the truncation demo with `overflowed=1` and a shorter payload.
+- [ ] Frame every 5 s is valid JSON: `{"fields":[{"snd":..},...]}`.
+- [ ] `frame round-trip OK` every time; if MISMATCH, a field did not survive.
+- [ ] Paste a frame into `jq .` on the host — it parses.
+
+
 
 
 
