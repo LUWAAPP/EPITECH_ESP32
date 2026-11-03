@@ -1,25 +1,28 @@
 #include <Arduino.h>
+#include <SensirionI2cSht4x.h>
+#include <Wire.h>
 
+#include "hal/board/ttgo_t7_v14.h"
 #include "utils/logger.h"
 
-// Stage v0.2-adc
+// Stage v0.3-i2c
 //
-// Goal: turn an analog voltage into a number you can defend.
+// Goal: talk to a device on a two-wire bus, and prove the bus is alive before
+// blaming the driver.
 //
-// Lesson: the ESP32 ADC is 12 bit (0..4095) but not a laboratory instrument.
-// analogSetAttenuation(ADC_11db) gives roughly 0..3.1 V; readings compress near
-// the rails; GPIO 34..39 are input-only. The MAX9814 microphone outputs an audio
-// waveform around a DC bias, so the useful quantity is peak-to-peak amplitude
-// over a window, not a single analogRead().
+// Lesson: I2C is an addressed bus. A scan tells you which addresses respond; the
+// datasheet tells you which address the part should use. The SHT4x answers at
+// 0x44. If the scan is empty, the problem is wiring/power, not the library.
 //
-// A 50 ms window is 20 Hz of envelope resolution: long enough to catch a clap,
-// short enough not to blur it. This is the same measurement the production
-// sound_sensor.cpp performs.
+// The board header is introduced here: from now on pins have names, not magic
+// numbers. It is also where the DHT/I2C pin-13 conflict is documented.
 
-static const int ADC_SOUND = 35;  // verify against your S2 continuity map
 static const unsigned long SAMPLE_WINDOW_MS = 50;
 static const unsigned long REPORT_INTERVAL_MS = 500;
+static const unsigned long HT_INTERVAL_MS = 2000;
 static const int HEARTBEAT_LED = LED_BUILTIN;
+
+static SensirionI2cSht4x sht4x;
 
 struct SoundWindow {
     uint16_t min;
@@ -31,7 +34,6 @@ struct SoundWindow {
 static SoundWindow readWindow(int pin) {
     SoundWindow w = {4095, 0, 0, 0};
     unsigned long start = millis();
-
     while (millis() - start < SAMPLE_WINDOW_MS) {
         uint16_t sample = analogRead(pin);
         if (sample > w.max) w.max = sample;
@@ -42,6 +44,19 @@ static SoundWindow readWindow(int pin) {
     return w;
 }
 
+static void scanI2C() {
+    LOG_I("scanning I2C bus SDA=%d SCL=%d", BoardPins::I2C_SDA, BoardPins::I2C_SCL);
+    int found = 0;
+    for (uint8_t address = 1; address < 127; address++) {
+        Wire.beginTransmission(address);
+        if (Wire.endTransmission() == 0) {
+            LOG_I("  device at 0x%02X", address);
+            found++;
+        }
+    }
+    LOG_I("scan complete: %d device(s)", found);
+}
+
 void setup() {
     Logger::getInstance().begin(115200, LOG_INFO);
     pinMode(HEARTBEAT_LED, OUTPUT);
@@ -49,15 +64,25 @@ void setup() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
 
-    LOG_I("stage v0.2-adc on %s", ARDUINO_BOARD);
-    LOG_I("sound ADC on GPIO %d, window %lu ms, report %lu ms",
-          ADC_SOUND, SAMPLE_WINDOW_MS, REPORT_INTERVAL_MS);
-    LOG_I("attenuation 11 dB, resolution 12 bit");
+    Wire.begin(BoardPins::I2C_SDA, BoardPins::I2C_SCL);
+    scanI2C();
+
+    sht4x.begin(Wire, 0x44);
+    uint32_t serial = 0;
+    int16_t err = sht4x.serialNumber(serial);
+    if (err) {
+        LOG_E("SHT4x did not answer (error %d); check 0x44 in the scan", err);
+    } else {
+        LOG_I("SHT4x serial 0x%08lX", (unsigned long)serial);
+    }
+
+    LOG_I("stage v0.3-i2c on %s", ARDUINO_BOARD);
 }
 
 void loop() {
     static unsigned long lastBlink = 0;
-    static unsigned long lastReport = 0;
+    static unsigned long lastSound = 0;
+    static unsigned long lastHt = 0;
     static bool ledOn = false;
 
     unsigned long now = millis();
@@ -68,14 +93,22 @@ void loop() {
         digitalWrite(HEARTBEAT_LED, ledOn ? HIGH : LOW);
     }
 
-    if (now - lastReport >= REPORT_INTERVAL_MS) {
-        lastReport = now;
+    if (now - lastSound >= REPORT_INTERVAL_MS) {
+        lastSound = now;
+        SoundWindow w = readWindow(BoardPins::ADC_SOUND);
+        LOG_I("sound p2p=%u mean=%lu", w.max - w.min, w.count ? w.sum / w.count : 0);
+    }
 
-        SoundWindow w = readWindow(ADC_SOUND);
-        uint16_t p2p = w.max - w.min;
-        uint32_t mean = w.count ? w.sum / w.count : 0;
+    if (now - lastHt >= HT_INTERVAL_MS) {
+        lastHt = now;
 
-        LOG_I("p2p=%u min=%u max=%u mean=%lu samples=%lu",
-              p2p, w.min, w.max, mean, w.count);
+        float temperature = 0.0f;
+        float humidity = 0.0f;
+        uint16_t err = sht4x.measureHighPrecision(temperature, humidity);
+        if (err || isnan(temperature) || isnan(humidity)) {
+            LOG_E("SHT4x read failed (error %u)", err);
+        } else {
+            LOG_I("SHT4x temp=%.2f C hum=%.2f %%", temperature, humidity);
+        }
     }
 }

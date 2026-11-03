@@ -24,3 +24,11 @@ are the ones a team must run with the board in hand.
 - [ ] Cover the microphone: `p2p` collapses.
 - [ ] `samples` per window is roughly 5000-15000 (ADC rate, not a fixed count).
 
+## v0.3-i2c
+
+- [ ] Scan lists `0x44` (SHT4x). Empty scan = wiring or power, not a code bug.
+- [ ] Serial number prints and is stable across resets.
+- [ ] Temperature/humidity change when you breathe on the sensor.
+- [ ] Disconnect SDA: scan is empty and the read fails with an error, no crash.
+
+

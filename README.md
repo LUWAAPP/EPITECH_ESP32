@@ -69,4 +69,17 @@ Acceptance:
 - `mean` stays near the microphone's DC bias regardless of loudness;
 - the LED keeps blinking — the 50 ms window is the only blocking section.
 
+## Stage 03 — `v0.3-i2c`
+
+The bus before the driver: scan I2C, confirm `0x44`, then read the SHT4x. The
+board pin header appears here, including the pin-13 conflict between the DHT data
+line and the I2C SDA line.
+
+Acceptance:
+
+- scan lists `0x44`;
+- SHT4x serial number and plausible temperature/humidity print every 2 s;
+- unplugging SDA produces an empty scan and an explicit read error, not a hang.
+
+
 
