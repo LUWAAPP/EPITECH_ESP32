@@ -26,7 +26,7 @@
 
 // Metadata carried in status payloads; used by the OTA stage too.
 #define HARDWARE_VERSION 14
-#define FIRMWARE_VERSION "0.11.0"
+#define FIRMWARE_VERSION "1.0.0"
 #define FIRMWARE_URL "http://192.168.1.10:8000/firmware.bin"
 #define FIRMWARE_SIG_URL "http://192.168.1.10:8000/firmware.sig"
 

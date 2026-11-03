@@ -247,6 +247,34 @@ Acceptance:
 - watchdog resets a deliberately hung board;
 - stale flag appears for a frozen sensor; decimals survive.
 
+## Stage 14 — `v1.0-ota`
+
+Signed over-the-air updates: the last production gap that is device work. The
+firmware embeds a public key, `cmd/ota` delivers `{url, version, checksum, size}`,
+the image is downloaded, hashed and verified with `mbedtls_pk_verify` before
+`httpUpdate` commits it. A bad signature leaves the running application intact.
+`cmd/rollback` returns to the previous slot.
+
+```bash
+tools/gen_keys.sh                 # private_key.pem (gitignored) + src/public_key.h
+pio run
+tools/sign_firmware.sh            # .pio/build/.../firmware.sig
+```
+
+RSA-2048 + SHA-256 is used instead of Ed25519: ESP-IDF 4.4 ships mbedtls 2.28.7,
+whose legacy `mbedtls_pk_verify` path has no EdDSA support. The production
+firmware's embedded key is RSA too; the signing scripts now match it.
+
+Acceptance:
+
+- a correctly signed image installs and the version changes;
+- a corrupted signature is rejected and the running image survives;
+- rollback returns to the previous slot;
+- the private key never enters git.
+
+`docs/parity.md` lists every deliberate difference from the production tree.
+
+
 
 
 

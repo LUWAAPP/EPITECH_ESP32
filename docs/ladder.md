@@ -35,9 +35,9 @@ tools/build-all-tags.sh
 | 9 | `v0.9-scheduler` | TaskScheduler windows, averaging, frame on serial | all four | S6+7 |
 | 10 | `v0.10-wifi` | WiFiManager portal, MAC-derived ID, RSSI, backoff | +AP | S8 |
 | 11 | `v0.11-mqtt` | PubSubClient, `tele/` + `sta/`, heartbeat, QoS 1 | +Mosquitto | S10 |
-| 12 | `v0.12-commands` | six `cmd/*` handlers, NVS runtime config | | S11 |
+| 12 | `v0.12-commands` | four `cmd/*` handlers (six by v1.0), NVS runtime config | | S11 |
 | 13 | `v0.13-reliability` | NTP `t`, LWT, watchdog, frozen-value flag | | S11/S12 |
-| 14 | `v1.0-ota` | Ed25519 signing, `cmd/ota`, verify, rollback | | S12 capstone |
+| 14 | `v1.0-ota` | RSA-2048 signing, `cmd/ota`, verify, rollback | | S12 capstone |
 
 ## Session contract
 

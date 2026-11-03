@@ -5,21 +5,25 @@
 #include "hal/hal.h"
 #include "mqtt/mqtt_protocol.h"
 #include "network/network_manager.h"
+#include "ota/ota_manager.h"
+#include "public_key.h"
 #include "utils/config_manager.h"
 #include "utils/logger.h"
 #include "utils/task_manager.h"
 
-// Stage v0.13-reliability
+// Stage v1.0-ota
 //
-// Goal: close the four gaps that make a node silently wrong — unsynchronised
-// time, invisible node death, hung loops and frozen readings.
+// Goal: the device updates itself without trusting the network. Signed OTA is
+// the last gap between this ladder and the production firmware.
 //
-// Lesson: reliability is observable. `t` separates measurement time from
-// delivery time; a retained Last Will leaves an offline marker when power dies;
-// the watchdog reboots a hung loop instead of letting it pretend; three
-// identical frames are flagged stale instead of republished as fresh.
+// Lesson: a public key in firmware turns an update into a verification problem.
+// `cmd/ota` delivers {url, version, checksum, size}; the image is downloaded,
+// hashed and checked with mbedtls_pk_verify before httpUpdate may commit it.
+// A bad signature leaves the running application untouched; cmd/rollback
+// returns to the previous slot.
 //
-// The command channel from v0.12 remains: status, config, geohash, restart.
+// Everything from v0.13 stays: NTP timestamps, retained Last Will, watchdog,
+// stale flag and decimal precision.
 
 static const int HEARTBEAT_LED = LED_BUILTIN;
 static const unsigned long STATUS_INTERVAL_MS = 10000;
@@ -33,6 +37,10 @@ static const char* ok(bool value) { return value ? "PASS" : "FAIL"; }
 
 static void mqttCallback(char* topic, byte* payload, unsigned int length) {
     mqtt.handleMqttMessage(topic, payload, length);
+}
+
+static void otaStatusCallback(const char* commandStatus, int progress) {
+    mqtt.publishStatus("ota", commandStatus, progress);
 }
 
 void setup() {
@@ -71,6 +79,13 @@ void setup() {
 
     TaskManager::getInstance().init();
     DataManager::getInstance().init(hal, TaskManager::getInstance().getScheduler());
+
+    // OTA: the public key verifies, the private key signs off-device. A tampered
+    // image is rejected before it can be committed.
+    OTAManager::getInstance().init(
+        public_key_der, public_key_der_len,
+        Config().getFirmwareUrl(), Config().getFirmwareSigUrl(),
+        Config().getStaTopic(), otaStatusCallback);
 
     // Watchdog: if the loop stops feeding it for 30 s, the board reboots. The
     // failure mode this catches is a hung driver or a blocked loop, not a

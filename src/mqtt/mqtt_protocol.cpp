@@ -2,6 +2,7 @@
 #include "utils/config_manager.h"
 #include "utils/runtime_config.h"
 #include "network/network_manager.h"
+#include "ota/ota_manager.h"
 #include "utils/logger.h"
 #include <ArduinoJson.h>
 #include <WiFi.h>
@@ -70,8 +71,16 @@ void MqttProtocol::handleMqttMessage(char* topic, byte* payload, unsigned int le
         handleCmdStatus();
         return;
     }
+    if (topicStr == Config().getCmdOtaTopic()) {
+        handleCmdOta(pl, length);
+        return;
+    }
     if (topicStr == Config().getCmdConfigTopic()) {
         handleCmdConfig(pl, length);
+        return;
+    }
+    if (topicStr == Config().getCmdRollbackTopic()) {
+        handleCmdRollback();
         return;
     }
     if (topicStr == Config().getCmdGeohashTopic()) {
@@ -88,13 +97,34 @@ void MqttProtocol::subscribeCommandTopics() {
     NetworkManager& nm = NetworkManager::getInstance();
     const uint8_t qos = 1;
     nm.subscribe(Config().getCmdStatusTopic(), qos);
+    nm.subscribe(Config().getCmdOtaTopic(), qos);
     nm.subscribe(Config().getCmdConfigTopic(), qos);
+    nm.subscribe(Config().getCmdRollbackTopic(), qos);
     nm.subscribe(Config().getCmdGeohashTopic(), qos);
     nm.subscribe(Config().getCmdRestartTopic(), qos);
 }
 
 void MqttProtocol::handleCmdStatus() {
     publishStatus("", "", 0);
+}
+
+void MqttProtocol::handleCmdOta(const char* payload, unsigned int length) {
+    DynamicJsonDocument doc(512);
+    DeserializationError err = deserializeJson(doc, payload, length);
+    if (err || !doc.containsKey("url")) {
+        LOG_E("invalid OTA payload");
+        publishStatus("ota", "failed", 0);
+        return;
+    }
+
+    const char* url = doc["url"].as<const char*>();
+    const char* version = doc["version"] | "";
+    const char* checksum = doc["checksum"] | "";
+    size_t size = doc["size"] | 0;
+
+    // Signature verification happens inside the OTA manager before the image is
+    // committed; a failed verification reports "failed" and keeps the old app.
+    OTAManager::getInstance().performUpdateFromMqtt(url, version, checksum, size);
 }
 
 void MqttProtocol::handleCmdConfig(const char* payload, unsigned int length) {
@@ -108,6 +138,15 @@ void MqttProtocol::handleCmdConfig(const char* payload, unsigned int length) {
     }
     RuntimeConfig::getInstance().setParametersFromJson(obj);
     publishStatus("config", "completed", 0);
+}
+
+void MqttProtocol::handleCmdRollback() {
+    bool ok = OTAManager::getInstance().performRollback();
+    publishStatus("rollback", ok ? "completed" : "failed", 0);
+    if (ok) {
+        delay(500);
+        ESP.restart();
+    }
 }
 
 void MqttProtocol::handleCmdGeohash(const char* payload, unsigned int length) {

@@ -116,6 +116,19 @@ are the ones a team must run with the board in hand.
       `"stale":true`.
 - [ ] `hum`/`temp` carry one decimal, not integers.
 
+## v1.0-ota
+
+- [ ] `tools/gen_keys.sh` produces `private_key.pem` (gitignored) and a fresh
+      `src/public_key.h`; rebuild succeeds.
+- [ ] Serve firmware + signature over HTTP on the lab laptop, then
+      `mosquitto_pub -t cmd/ota/<id> -m '{"url":"http://<host>:8000/firmware.bin",...}'`.
+- [ ] Status reports `ota` progress and then `completed`/`failed`.
+- [ ] Flip one byte in the signature (or sign a different binary): verification
+      fails, the old application keeps running, status says `failed`.
+- [ ] `cmd/rollback` reboots into the previous OTA slot.
+- [ ] Tampered firmware is never committed to the boot partition.
+
+
 
 
 

@@ -37,7 +37,9 @@ private:
     MqttProtocol& operator=(const MqttProtocol&) = delete;
 
     void handleCmdStatus();
+    void handleCmdOta(const char* payload, unsigned int length);
     void handleCmdConfig(const char* payload, unsigned int length);
+    void handleCmdRollback();
     void handleCmdGeohash(const char* payload, unsigned int length);
     void handleCmdRestart();
 };
