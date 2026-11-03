@@ -81,5 +81,18 @@ Acceptance:
 - SHT4x serial number and plausible temperature/humidity print every 2 s;
 - unplugging SDA produces an empty scan and an explicit read error, not a hang.
 
+## Stage 04 — `v0.4-temp-autodetect`
+
+One image, two board generations: an abstract `ITemperatureSensor` with SHT4x,
+DHT22 and DHT11 implementations, probed in that order. Failure to find any sensor
+is an explicit state, not a crash.
+
+Acceptance:
+
+- the detected type is logged (`SHT40`, `DHT22`, `DHT11` or none);
+- readings are plausible and refresh every 2 s;
+- with no sensor the loop keeps running with a warning.
+
+
 
 

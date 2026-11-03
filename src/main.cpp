@@ -1,28 +1,28 @@
 #include <Arduino.h>
-#include <SensirionI2cSht4x.h>
 #include <Wire.h>
 
 #include "hal/board/ttgo_t7_v14.h"
+#include "hal/sensors/temperature_sensor.h"
 #include "utils/logger.h"
 
-// Stage v0.3-i2c
+// Stage v0.4-temp-autodetect
 //
-// Goal: talk to a device on a two-wire bus, and prove the bus is alive before
-// blaming the driver.
+// Goal: one firmware image that works on both board generations.
 //
-// Lesson: I2C is an addressed bus. A scan tells you which addresses respond; the
-// datasheet tells you which address the part should use. The SHT4x answers at
-// 0x44. If the scan is empty, the problem is wiring/power, not the library.
+// Lesson: an abstract interface (ITemperatureSensor) buys runtime polymorphism.
+// SHT4x answers on I2C, DHT22/DHT11 on a one-wire data pin; the caller does not
+// care. Autodetection tries SHT4x first, then DHT22, then DHT11, and reports
+// NONE instead of guessing.
 //
-// The board header is introduced here: from now on pins have names, not magic
-// numbers. It is also where the DHT/I2C pin-13 conflict is documented.
+// Caution: each failed DHT probe blocks for seconds (the library needs settle
+// time). That is acceptable during boot, never inside a sampling loop.
 
 static const unsigned long SAMPLE_WINDOW_MS = 50;
 static const unsigned long REPORT_INTERVAL_MS = 500;
 static const unsigned long HT_INTERVAL_MS = 2000;
 static const int HEARTBEAT_LED = LED_BUILTIN;
 
-static SensirionI2cSht4x sht4x;
+static TemperatureSensor tempSensor;
 
 struct SoundWindow {
     uint16_t min;
@@ -44,17 +44,13 @@ static SoundWindow readWindow(int pin) {
     return w;
 }
 
-static void scanI2C() {
-    LOG_I("scanning I2C bus SDA=%d SCL=%d", BoardPins::I2C_SDA, BoardPins::I2C_SCL);
-    int found = 0;
-    for (uint8_t address = 1; address < 127; address++) {
-        Wire.beginTransmission(address);
-        if (Wire.endTransmission() == 0) {
-            LOG_I("  device at 0x%02X", address);
-            found++;
-        }
+static const char* sensorName(TemperatureSensor::SensorType type) {
+    switch (type) {
+        case TemperatureSensor::SensorType::SHT40: return "SHT40";
+        case TemperatureSensor::SensorType::DHT22: return "DHT22";
+        case TemperatureSensor::SensorType::DHT11: return "DHT11";
+        default: return "NONE";
     }
-    LOG_I("scan complete: %d device(s)", found);
 }
 
 void setup() {
@@ -64,19 +60,16 @@ void setup() {
     analogReadResolution(12);
     analogSetAttenuation(ADC_11db);
 
-    Wire.begin(BoardPins::I2C_SDA, BoardPins::I2C_SCL);
-    scanI2C();
+    LOG_I("stage v0.4-temp-autodetect on %s", ARDUINO_BOARD);
 
-    sht4x.begin(Wire, 0x44);
-    uint32_t serial = 0;
-    int16_t err = sht4x.serialNumber(serial);
-    if (err) {
-        LOG_E("SHT4x did not answer (error %d); check 0x44 in the scan", err);
+    bool ok = tempSensor.init(BoardPins::DHT_PIN, BoardPins::I2C_SCL,
+                              TemperatureSensor::SensorType::NONE, true);
+    if (!ok) {
+        LOG_E("no temperature sensor detected (SHT40 0x44, DHT on GPIO %d)",
+              BoardPins::DHT_PIN);
     } else {
-        LOG_I("SHT4x serial 0x%08lX", (unsigned long)serial);
+        LOG_I("temperature sensor: %s", sensorName(tempSensor.getType()));
     }
-
-    LOG_I("stage v0.3-i2c on %s", ARDUINO_BOARD);
 }
 
 void loop() {
@@ -102,13 +95,18 @@ void loop() {
     if (now - lastHt >= HT_INTERVAL_MS) {
         lastHt = now;
 
+        if (!tempSensor.isInitialized()) {
+            LOG_W("temperature sensor not present, skipping sample");
+            return;
+        }
+
         float temperature = 0.0f;
         float humidity = 0.0f;
-        uint16_t err = sht4x.measureHighPrecision(temperature, humidity);
-        if (err || isnan(temperature) || isnan(humidity)) {
-            LOG_E("SHT4x read failed (error %u)", err);
+        if (tempSensor.readWithRetry(temperature, humidity, 3, 100)) {
+            LOG_I("%s temp=%.2f C hum=%.2f %%", sensorName(tempSensor.getType()),
+                  temperature, humidity);
         } else {
-            LOG_I("SHT4x temp=%.2f C hum=%.2f %%", temperature, humidity);
+            LOG_E("temperature read failed after retries");
         }
     }
 }

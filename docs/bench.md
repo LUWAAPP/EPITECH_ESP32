@@ -31,4 +31,14 @@ are the ones a team must run with the board in hand.
 - [ ] Temperature/humidity change when you breathe on the sensor.
 - [ ] Disconnect SDA: scan is empty and the read fails with an error, no crash.
 
+## v0.4-temp-autodetect
+
+- [ ] With the SHT4x populated: log says `temperature sensor: SHT40`.
+- [ ] With only a DHT on GPIO 13: log says `DHT22` or `DHT11` after the settle
+      time; readings match the room.
+- [ ] With neither: `no temperature sensor detected`, and the loop keeps running.
+- [ ] Note the boot time cost of failed DHT probes — it is seconds, not
+      milliseconds.
+
+
 
