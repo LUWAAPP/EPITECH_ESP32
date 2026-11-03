@@ -40,5 +40,13 @@ are the ones a team must run with the board in hand.
 - [ ] Note the boot time cost of failed DHT probes — it is seconds, not
       milliseconds.
 
+## v0.5-co2-uart
+
+- [ ] Boot log names the CO2 family (`MHZ19` or `S8`) after probing.
+- [ ] CO2 value is plausible outdoors (~400-600 ppm); breathe on it, it climbs.
+- [ ] Swap RX/TX: detection fails with an explicit message, no hang.
+- [ ] Power-cycle and observe the warm-up behaviour — first readings may be 0.
+
+
 
 

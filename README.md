@@ -93,6 +93,19 @@ Acceptance:
 - readings are plausible and refresh every 2 s;
 - with no sensor the loop keeps running with a warning.
 
+## Stage 05 — `v0.5-co2-uart`
+
+UART sensors. Both CO2 families share 9600 8N1 but not the protocol; the firmware
+asks instead of assuming. Warm-up is real: an early 0 ppm is a warm-up symptom,
+not necessarily a dead sensor.
+
+Acceptance:
+
+- the detected CO2 family is logged;
+- ppm is plausible and reacts to exhaled air;
+- swapped RX/TX yields an explicit failure message, no hang.
+
+
 
 
 
