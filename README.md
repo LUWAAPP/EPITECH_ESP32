@@ -149,6 +149,24 @@ Acceptance:
 - the real frame parses with `jq`;
 - `frame round-trip OK` on every frame.
 
+## Stage 09 — `v0.9-scheduler`
+
+`TaskScheduler` replaces the hand-rolled timers. Each sensor samples at its own
+cadence (120 ms sound, 400 ms PM, 2 s CO2, 15 s temperature) into a window; the
+15 s frame averages the windows and clears them.
+
+Deliberate defect carried over from production, for the S6+7 audit: the three
+averaged fields are windowed means, while `temp` and `hum` are the last
+instantaneous sample cast to an integer. Explain the discrepancy with your own
+measurements.
+
+Acceptance:
+
+- frames every 15 s with averaged `snd`, `co2`, `pm25`;
+- changing one interval constant changes only that sensor;
+- an absent sensor yields 0 in its field, never a stalled frame.
+
+
 
 
 

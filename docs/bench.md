@@ -68,6 +68,15 @@ are the ones a team must run with the board in hand.
 - [ ] `frame round-trip OK` every time; if MISMATCH, a field did not survive.
 - [ ] Paste a frame into `jq .` on the host — it parses.
 
+## v0.9-scheduler
+
+- [ ] A frame prints every 15 s with averaged `snd`, `co2`, `pm25`.
+- [ ] `hum`/`temp` equal the last 15 s sample, not an average — the deliberate
+      metrology defect to explain in the S6+7 audit.
+- [ ] Changing one `*_SAMPLE_TIME` constant changes only that sensor's cadence.
+- [ ] With a sensor absent, its averaged field stays 0 and the frame still ships.
+
+
 
 
 
