@@ -1,0 +1,32 @@
+name: build-every-tag
+on: [push, pull_request]
+
+jobs:
+  tags:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.list.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: list
+        run: echo "tags=$(git tag --sort=creatordate | jq -R -s -c 'split(\"\n\")[:-1]')" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: tags
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.tags.outputs.tags) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install platformio
+      - run: git checkout "${{ matrix.tag }}"
+      - run: pio run -e ttgo-t7-v14-mini32

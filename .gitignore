@@ -1,0 +1,9 @@
+.pio/
+.vscode/
+compile_commands.json
+
+# Local overrides: never commit real credentials or private keys.
+secrets.local.h
+*.pem
+*.der
+tools/keys/
