@@ -44,3 +44,16 @@ Acceptance:
 
 If the port is not detected: `ls /dev/ttyUSB* /dev/ttyACM*`, and set
 `upload_port` in `platformio.ini` only if auto-detection fails.
+
+## Stage 01 — `v0.1-timing`
+
+Non-blocking timing. `delay()` stops the whole CPU; `millis()` lets independent
+periodic jobs share one loop. The heartbeat LED blinks at 1 Hz while the log line
+fires at 1 Hz, independently.
+
+Acceptance:
+
+- LED blinks 500 ms on / 500 ms off;
+- `uptime` and `reports` still advance while the LED blinks;
+- log lines are prefixed with `[seconds.milliseconds]` and a level.
+

@@ -1,36 +1,49 @@
 #include <Arduino.h>
 
-// Stage v0.0-toolchain
-//
-// Goal: prove the toolchain path end to end — compile, flash, monitor — before
-// any sensor code exists. If nothing prints, the problem is the toolchain or the
-// cable, not the firmware.
-//
-// Lesson: setup() runs once, loop() runs forever; Serial carries diagnostics.
+#include "utils/logger.h"
 
-static const unsigned long BANNER_INTERVAL_MS = 5000;
+// Stage v0.1-timing
+//
+// Goal: keep the loop responsive. The naive version of this program is
+//   digitalWrite(led, HIGH); delay(500); digitalWrite(led, LOW); delay(500);
+// which blocks everything else for half a second at a time. Once sensors and
+// networking exist, blocking means missed samples and dropped connections.
+//
+// Lesson: millis() is a free-running counter; compare timestamps instead of
+// sleeping. The LED and the log line run independently, at different periods,
+// from the same loop.
+
+static const int HEARTBEAT_LED = LED_BUILTIN;  // 19 on this board variant
+static const unsigned long BLINK_INTERVAL_MS = 500;
+static const unsigned long REPORT_INTERVAL_MS = 1000;
 
 void setup() {
-    Serial.begin(115200);
-    delay(200);  // let the USB bridge settle before the first byte
+    // Logger::begin() owns Serial.begin() and prints the startup banner.
+    Logger::getInstance().begin(115200, LOG_INFO);
+    pinMode(HEARTBEAT_LED, OUTPUT);
 
-    Serial.println();
-    Serial.println("==========================================");
-    Serial.println("  SenPork firmware ladder — stage 0");
-    Serial.println("==========================================");
-    Serial.printf("tag        : v0.0-toolchain\n");
-    Serial.printf("compiled   : %s %s\n", __DATE__, __TIME__);
-    Serial.printf("board      : %s\n", ARDUINO_BOARD);
-    Serial.printf("cpu        : %u MHz\n", getCpuFrequencyMhz());
-    Serial.println("------------------------------------------");
+    LOG_I("stage v0.1-timing on %s", ARDUINO_BOARD);
+    LOG_I("heartbeat LED on GPIO %d", HEARTBEAT_LED);
+    LOG_I("blink %lu ms, report %lu ms", BLINK_INTERVAL_MS, REPORT_INTERVAL_MS);
 }
 
 void loop() {
-    static unsigned long lastBanner = 0;
+    static unsigned long lastBlink = 0;
+    static unsigned long lastReport = 0;
+    static unsigned long reports = 0;
+    static bool ledOn = false;
 
     unsigned long now = millis();
-    if (now - lastBanner >= BANNER_INTERVAL_MS) {
-        lastBanner = now;
-        Serial.printf("alive after %lu s\n", now / 1000);
+
+    if (now - lastBlink >= BLINK_INTERVAL_MS) {
+        lastBlink = now;
+        ledOn = !ledOn;
+        digitalWrite(HEARTBEAT_LED, ledOn ? HIGH : LOW);
+    }
+
+    if (now - lastReport >= REPORT_INTERVAL_MS) {
+        lastReport = now;
+        reports++;
+        LOG_I("uptime=%lu s reports=%lu", now / 1000, reports);
     }
 }
